@@ -13,18 +13,20 @@ app.use(session({
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));// 接收表单格式请求体
 
-app.get('/api/users', (req, res) => {
-  res.json({
-    code: 0,
-    data: [
-      { id: 1, name: 'zf1' },
-      { id: 2, name: 'zf2' },
-      { id: 3, name: 'zf3' },
-    ]
-  })
+app.get('/api/users', (req, res) => { 
+  setTimeout(() => {
+    res.json({
+      code: 0,
+      data: [
+        { id: 1, name: 'zf1' },
+        { id: 2, name: 'zf2' },
+        { id: 3, name: 'zf3' }
+      ]
+    });
+  }, 10000);
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/users', (req, res) => {
   const user = req.body;
   req.session.user = user;
   res.json({

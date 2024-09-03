@@ -10,8 +10,9 @@ const actionCreators = {
         dispatch({
           type: SET_USERLIST,
           payload: data
-        })
-      })
+        });
+        return getState().user.list;
+      });
     }
   },
   addUser(payload) {

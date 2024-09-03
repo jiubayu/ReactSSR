@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderToString } from 'react-dom/server';
+import { renderToString, renderToPipeableStream } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server';
 import { matchRoutes } from 'react-router-dom';
 import StyleContext  from 'isomorphic-style-loader-react18/StyleContext'
@@ -25,6 +25,7 @@ app.get('*', (req, res) => {
   const matchRouteList = matchRoutes(routesConfig, { pathname: req.url });
   if (matchRouteList) {
     const { store, history } = getServerStore(req);
+    // const loadDataPromises = [];
     const loadDataPromises = matchRouteList.map((match) => {
       if (match.route.element.type.loadData) {
         // 默认情况下，我们可能有很多组件都需要调用loadData，这时如果有一个失败了，整个数组都失败了，这个其实是不合理的
@@ -56,34 +57,46 @@ app.get('*', (req, res) => {
 
       const helmet = Helmet.renderStatic();
 
-      const html = renderToString(
+      const {pipe} = (renderToString, renderToPipeableStream)(
         <StaticRouter location={req.url}>
           <StyleContext.Provider value={{ insertCss }}>
             <App store={store} />
           </StyleContext.Provider>
-        </StaticRouter>);
-      console.log("🚀 ~ app.get ~ html:", html);
+        </StaticRouter>, {
+          // bootstrapScripts: ["/client.js"],
+          onShellReady() {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/html;charset=utf8');
+            let styles = '';
+            if (css.size > 0) {
+              styles = `<style> ${[...css].join('')}</style>`;
+            }
+            res.write(`
+              <html>
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+                  ${helmet.title.toString()}
+                  ${helmet.meta.toString()}
+                  ${styles}
+                </head>
+                <body>
+                  <div id="root">`);
+            pipe(res);
+            res.write(`</div>
+                 <script>
+                  var context = {state: ${JSON.stringify(store.getState())}}
+                </script>
+                <script src="/client.js"></script>
+              </body>
+            </html>
+              `)
+          }
+        });
+      // console.log("🚀 ~ app.get ~ html:", html);
       // 返回html
       // todo 使用nunjucks模版来完成
-      res.send(`
-    <html>
-       <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <meta http-equiv="X-UA-Compatible" content="ie=edge">
-          ${helmet.title.toString()}
-          ${helmet.meta.toString()}
-          ${styles}
-        </head>
-        <body>
-          <div id="root">${html}</div>
-          <script>
-            var context = {state: ${JSON.stringify(store.getState())}}
-          </script>
-          <script src="/client.js"></script>
-        </body>
-    </html>
-    `)
     })
   } else {
     // 没有匹配的路由，返回404
